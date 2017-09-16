@@ -1,14 +1,14 @@
 # -*- coding:utf-8 -*-
-import split_rec
+from learnRecSVM import predict
 from PIL import Image
 import requests
 import json
+import smtplib
+
+
 
 url = 'http://169ol.com/Stream/User/submitLogin'
 imgUrl = 'http://169ol.com/Stream/Code/getCode'
-
-
-
 
 head = {
     'accept': "application/json, text/javascript, */*; q=0.01",
@@ -45,9 +45,10 @@ def sign(phone, pswd):
         # save image to disk
         with open('code.png', 'wb') as f:
             f.write(vimg.content)
-        imagecode = split_rec.rec_img('code.png')
+        #imagecode = split_rec.rec_img('code.png')
+        imagecode = "".join(predict('code.png'))
         retry = retry + 1
-        if retry>10:
+        if retry>20:
             msg='faild to get the validation code, tried 10 times'
             return msg
         if(len(imagecode)!=4):
@@ -60,7 +61,7 @@ def sign(phone, pswd):
                    'phoneCode': '', 'backurl': ' '}
 
         r = s.post(url, data=payload, headers=head)
-        print r.text
+        print r.text.encode('utf-8')
         result = json.loads(r.content)
         msg = result['message'].encode('utf-8')
         if msg=='图形验证码错误':
@@ -84,18 +85,18 @@ def sign(phone, pswd):
 
         return msg
 
+fname = "userdata.txt"
+with open(fname) as f:
+    content = f.readlines()
+content = [x.strip() for x in content]
+for usr in content:
+    udata=usr.split(",")
+    phone = udata[0]
+    pswd = udata[1]
+    email = udata[2]
+    try:
+        returnmsg = sign(phone,pswd)
+        print returnmsg
 
-
-
-# print '请输入验证码'
-# yanzhen = raw_input()
-# print '验证码:' + yanzhen
-# imagecode = yanzhen
-
-phone = '1861570*'
-pswd = '*'
-
-# phone = '1762804*'
-# pswd = '456*'
-returnmsg = sign(phone,pswd)
-print returnmsg
+    except Exception,e:
+        print ('签到异常 '+' error:'+ str(e.message) )

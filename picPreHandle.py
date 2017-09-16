@@ -9,14 +9,16 @@ import PIL.ImageOps
 import urllib
 import os
 import pytesseract
+import numpy as np
+
 
 def saveSampleImg():
-	if not os.path.exists('training'):
-		os.mkdir('training')
+	if not os.path.exists('source_img'):
+		os.mkdir('source_img')
 	for i in xrange(50):
 		#save images
 		img = Image.open(StringIO.StringIO(urllib.urlopen('http://169ol.com/Stream/Code/getCode').read()))
-		imgPath = "training/%d.png" %i
+		imgPath = "source_img/%d.png" %i
 		#print imgPath
 		img.save(imgPath)
 
@@ -183,10 +185,10 @@ def rec_img(imgPath):
 	depoint(img)
 	depoint(img,True)
 	# img.save('C:\\NotBackedUp\\01.png')
-	seperated_img = split_image(img)
+	seperated_img = split_image(img,save_temp=True)
 	recdString = ""
 	for cur_img in seperated_img:
-		recNum = pytesseract.image_to_string(cur_img, config='-psm 10 outputbase digits')
+		recNum = pytesseract.image_to_string(cur_img,config='-psm 10 outputbase digits')
 		recdString = recdString + recNum
 
 	print recdString
@@ -196,7 +198,82 @@ def rec_img(imgPath):
 		print "success"
 	else:
 		print "error ..."
+		img.save('temp/error_%s.png' % recdString)
 	return recdString
 
-# filePath = 'source/3.png'
-# rec_img(filePath)
+def resize(img,w_h):
+    img_w, img_h = img.size
+    background = Image.new('RGBA', w_h, (255, 255, 255, 255))
+    background = background.convert("L")
+    bg_w, bg_h = background.size
+    offset = ((bg_w - img_w) / 2, (bg_h - img_h) / 2)
+    background.paste(img, offset)
+    return background
+
+def getfiles(dirs):
+	fs = []
+	for fr in os.listdir(dirs):
+		f = dirs + fr
+		if f.rfind(u'.DS_Store')==-1:
+			fs.append(f)
+	return fs
+
+#passing opend image
+def getBinaryPix(im):
+	img = np.array(im)
+	rows, cols = img.shape
+	for i in range(rows):
+		for j in range(cols):
+			if (img[i, j] < 255):
+				img[i, j] = 0
+			else:
+				img[i, j] = 1
+		binpix = np.ravel(img) # img.reshape(1, rows * cols)
+	return binpix
+
+def loadSplitedBinaryPixImg(imgPath):
+    img = Image.open(imgPath).convert("L")
+    binarizing(img, 170)
+    depoint(img)
+    depoint(img, True)
+    imgs = split_image(img)
+    rs=[]
+    for cimg in imgs:
+        cimg = PIL.ImageOps.invert(cimg)
+        cimg = resize(cimg,(20,25))
+        pixs=getBinaryPix(cimg)
+        rs.append(pixs)
+    return rs
+
+def extractIdentityData():
+	dirs = "category/%s/"
+	for i in range(10):
+		for f in getfiles(dirs % i):
+			img = Image.open(f)
+			pixs = getBinaryPix(img).tolist()
+			pixs.append(i)
+			pixs = [str(i) for i in pixs]
+			content = ','.join(pixs)
+			with open('train_data.txt','a+') as f:
+				f.write(content)
+				f.write('\n')
+				f.close()
+
+
+
+if __name__=="__main__":
+	# filePath = 'error_675.png'
+	# rec_img(filePath)
+
+	#resize images
+	# dirs = "category/%s/"
+	# for i in range(10):
+	# 	for f in getfiles(dirs % (i)):
+	# 		img = Image.open(f, 'r')
+	# 		inverted_img = PIL.ImageOps.invert(img)
+	# 		adjusted_img = rotating_calipers(inverted_img)
+	# 		img = PIL.ImageOps.invert(adjusted_img)
+	# 		img = resize(img, (20, 25))
+	# 		img.save(f)
+
+	extractIdentityData()
